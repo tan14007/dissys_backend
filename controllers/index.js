@@ -23,6 +23,7 @@ router.post('/register', function (req, res) {
   User.find(query, function (err, users) {
     if (err) throw err
     else if (users.length == 0) {
+
       var user_model = new User(query);
       user_model.save(function (err, newUser) {
         if (err) throw err
@@ -53,9 +54,9 @@ router.get('/getuserinformation', function (req, res) {
       var promises;
       promises = joins.map((join, index) =>
         Group.find({
-          _id: join.gid
+          id: join.gid
         }).then(function (groups) {
-          if (join.removed) return;
+          if (join  && join.removed) return;
           else if (groups.length) result.push(groups[0]);
         })
       );
@@ -140,7 +141,7 @@ router.post('/joingroup', function (req, res) {
         if(join && !join.removed) {
           return res.send("Already joined");
         }
-        else if (join.removed){
+        else if (join && join.removed){
           return res.send("Already exitted");
         }
 
@@ -219,8 +220,18 @@ router.get('/getgroup', function (req, res) {
   });
 });
 
-// Query: [gid (objectId)]
-// Result: users [array of object]
+
+/*
+ * GET: /getgroupuser
+ * Get all uid in the given gid
+ * Body
+ *    gid: ObjectId // GroupID for querying group
+ * Return
+ *    [{ 
+ *        uid: ObjectID // UserID associated with the group
+ *    }]
+ */
+
 router.get('/getgroupuser', function (req, res) {
   result = []
   Join.find({ gid: req.query.gid }, function (err, joins) {
@@ -235,23 +246,35 @@ router.get('/getgroupuser', function (req, res) {
   });
 });
 
+/*
+ * GET: /getm
+ * Get all messages from the given gid
+ *    If the room found, return array of messages
+ *    Otherwise, return string "FAIL"
+ * Body
+ *    gid: ObjectId // GroupID for querying group
+ * Return
+ *    messages: [{ 
+ *        message: {...Message, _doc. // UserID associated with the group
+ *    }]
+ */
 // query: [gid (objectId)]
 // result: messages (array of object)
 router.get("/getm", function (req, res) {
   Message.find({ gid: req.query.gid }, function (err, messages) {
-
+    console.log(messages);
     if (err) res.send('FAIL');
     else {
       let promises = [];
-
       promises = messages.map(message => {
         return new Promise((resolve, reject) => {
-          User.findById(message.uid, (err, user) => {
+          User.find( {id: message.uid} , (err, user) => {
             if(err) {
               console.error(err);
               reject()
             }
             else {
+              console.log(user);
               message._doc.user = user;
               resolve();
             }
@@ -328,7 +351,7 @@ router.post('/sendm', function (req, res) {
           throw err
         }
         else {
-          User.find({ _id: message_model.uid }, (err, users) => {
+          User.find({ id: message_model.uid }, (err, users) => {
             let message = result._doc;
             message.user = users[0];
             Message.find({}).then(allMessages => {
