@@ -130,14 +130,14 @@ router.post('/creategroup', function (req, res) {
  */
 
 router.post('/joingroup', function (req, res) {
-  var query = { id: req.body.gid };
-  Group.find(query, function (err, groups) {
+  Group.findById( req.body.gid, function (err, groups) {
     if (err) throw err
     if (groups.length == 0) {
       return res.send("Group not found");
     }
     else {
       Join.findOne({ uid: req.body.uid, gid: req.body.gid, }, (err, join) => {
+        
         if(join && !join.removed) {
           return res.send("Already joined");
         }
@@ -255,26 +255,26 @@ router.get('/getgroupuser', function (req, res) {
  *    gid: ObjectId // GroupID for querying group
  * Return
  *    messages: [{ 
- *        message: {...Message, _doc. // UserID associated with the group
+ *        message: {...Message, User}  // User info associated with the message
  *    }]
  */
 // query: [gid (objectId)]
 // result: messages (array of object)
 router.get("/getm", function (req, res) {
   Message.find({ gid: req.query.gid }, function (err, messages) {
-    console.log(messages);
     if (err) res.send('FAIL');
     else {
       let promises = [];
       promises = messages.map(message => {
         return new Promise((resolve, reject) => {
-          User.find( {id: message.uid} , (err, user) => {
+          
+          User.findById( message.uid , (err, user) => {
             if(err) {
               console.error(err);
               reject()
             }
             else {
-              console.log(user);
+              
               message._doc.user = user;
               resolve();
             }
