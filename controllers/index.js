@@ -303,8 +303,23 @@ router.get("/getm", function (req, res) {
   });
 });
 
-// query: [uid (objectId) / gid (objectId)]
-// result: messages (array of object)
+/*
+ * GET: /viewunreadm
+ * Get all unread messages (for user with given uid) from the given gid
+ *    If the error occur, return string "FAIL"
+ *    Otherwise, return an object with array of messages
+ * Body
+ *    uid: ObjectId // UserID for querying group
+ *    gid: ObjectId // GroupID for querying group
+ * Return
+ *    messages: [{ 
+ *        message: {
+ *          ...Message, 
+ *          user: User, // User info associated with the message
+ *        }  
+ *    }]
+ */
+
 router.get('/viewunreadm', function (req, res) {
   var uid = req.query.uid;
   var gid = req.query.gid;
@@ -350,8 +365,21 @@ router.get('/viewunreadm', function (req, res) {
   });
 });
 
-// body: [uid (objectId), gid (objectId), content (string)]
-// result: [message]
+/*
+ * POST: /sendm
+ * Send a message
+ *    If the error occur, return string "ERROR"
+ *    Otherwise, return an object with sent message with sent user information
+ * Body
+ *    uid: ObjectId // UserID for querying group
+ *    gid: ObjectId // GroupID for querying group
+ *    content: String // Message
+ * Return
+ *    message: String // Sent message
+ *    messageOrder: Number // Integer represent message order
+ *    user: User //Sent user information
+ */
+
 router.post('/sendm', function (req, res) {
   var query = Group.findOne({ gid: req.body.gid }).select('gid');
   query.exec(function (err, group) {
@@ -377,8 +405,18 @@ router.post('/sendm', function (req, res) {
   })
 });
 
-// Body: [uid (objectId), gid (objectId)]
-// Result: [“SUCCESS” / “ERROR”]
+/*
+ * POST: /setread
+ * Set message as read at the current time
+ *    If the error occur, return string "ERROR"
+ *    Otherwise, return string "SUCCESS"
+ * Body
+ *    uid: ObjectId // UserID for desired group
+ *    gid: ObjectId // GroupID for desired group
+ * Return
+ *    ["SUCCESS" / "ERROR"]
+ */
+
 router.post("/setread", function (req, res) {
 
   Join.findOne({ uid: req.body.uid, gid: req.body.gid }, function (err, joins) {
@@ -398,6 +436,13 @@ router.post("/setread", function (req, res) {
   });
 });
 
+/*
+ * GET: /getmessageorder
+ * Get latest messageOrder number 
+ * Return
+ *    messageOrder: Number // Number of messages sent
+ */
+ 
 router.get('/getmessageorder', function (req, res) {
   Message.find({}).then(allMessages => {
     return res.send({messageOrder: allMessages.length});
