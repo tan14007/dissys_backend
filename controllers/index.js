@@ -27,10 +27,10 @@ router.post('/register', function (req, res) {
       var user_model = new User(query);
       user_model.save(function (err, newUser) {
         if (err) throw err
-        return res.send({ "uid": newUser.id });
+        return res.send({ "uid": newUser.id, "name": req.body.name });
       });
     }
-    else return res.send({ "uid": users[0].id });
+    else return res.send({ "uid": users[0].id, "name": req.body.name });
   });
 });
 
@@ -44,20 +44,20 @@ router.post('/register', function (req, res) {
  */
 
 router.get('/getuserinformation', function (req, res) {
-  Join.find({ uid: req.query.uid }, function (err, joins) {
-    if(err) {
+  Join.find( {uid: req.query.uid} , function (err, joins) {
+    if(err || !joins) {
       console.error(err);
       res.send({groups: []});
     }
     else {
       var result = [];
       var promises;
+
       promises = joins.map((join, index) =>
-        Group.find({
-          id: join.gid
-        }).then(function (groups) {
-          if (join  && join.removed) return;
-          else if (groups.length) result.push(groups[0]);
+        Group.findById(join.gid).then(function (groups) {
+          console.log(join)
+          if (join && join.removed) return;
+          else if (groups) result.push(groups);
         })
       );
 
@@ -136,20 +136,21 @@ router.post('/joingroup', function (req, res) {
       return res.send("Group not found");
     }
     else {
-      Join.findOne({ uid: req.body.uid, gid: req.body.gid, }, (err, join) => {
-        
-        if(join && !join.removed) {
+      Join.find({ "uid": req.body.uid, "gid": req.body.gid }, (err, joins) => {
+        if(joins && joins[0] && !joins[0].removed) {
           return res.send("Already joined");
         }
-        else if (join && join.removed){
+        else if (joins && joins[0] && joins[0].removed){
           return res.send("Already exitted");
         }
 
+
         var join_model = new Join({
-          uid: req.body.uid,
-          gid: req.body.gid,
-          read_at: 0
+          "uid": req.body.uid,
+          "gid": req.body.gid,
+          "read_at": 0
         });
+
         join_model.save(function (err) {
           if (err) throw err;
           else
@@ -161,8 +162,8 @@ router.post('/joingroup', function (req, res) {
 });
 
 /*
- * POST: /exitgroup
- * Permanently exit the group with given gid (req.body.gid)
+ * POST: /leavegroup
+ * Temporary exit the group with given gid (req.body.gid)
  *    If the user has been exitted, return string "SUCCESS"
  *    Otherwise, return string "ERROR"
  * Body
@@ -172,19 +173,27 @@ router.post('/joingroup', function (req, res) {
  *    String, as described above
  */
 
-router.post('/exitgroup', function (req, res) {
+router.post('/leavegroup', function (req, res) {
   var query = { uid: req.body.uid, gid: req.body.gid };
-  Join.find(query, function (err, joins) {
-    if (err) return res.send("ERROR");
+  try{
+    ret = Join.find(query, function(err, joins){
+      joins.map(function(join, index){
+        join.removed = true;
+        join.save();
+      });
+    });
+    res.send("SUCCESS");
+  }
+  catch(e){
+    console.log(e);
+    res.send("ERROR")
+  }
 
-    joins.set({ removed: true });
-    return res.send("SUCCESS");
-  });
 });
 
 /*
- * POST: /leavegroup
- * Temporary exit the group with given gid (req.body.gid)
+ * POST: /exitgroup
+ * Permanently exit the group with given gid (req.body.gid)
  *    If the user has been exitted, return string "SUCCESS"
  *    Otherwise, return string "ERROR"
  * Body
@@ -194,9 +203,10 @@ router.post('/exitgroup', function (req, res) {
  *    String, as described above
  */
 
-router.post('/leavegroup', function (req, res) {
+router.post('/exitgroup', function (req, res) {
   var query = { uid: req.body.uid, gid: req.body.gid };
   Join.remove(query, function (err, joins) {
+    console.log(query,joins);
     if (err) return res.send("ERROR");
     return res.send("SUCCESS");
   });
@@ -255,11 +265,13 @@ router.get('/getgroupuser', function (req, res) {
  *    gid: ObjectId // GroupID for querying group
  * Return
  *    messages: [{ 
- *        message: {...Message, User}  // User info associated with the message
+ *        message: {
+ *          ...Message, 
+ *          user: User, // User info associated with the message
+ *        }  
  *    }]
  */
-// query: [gid (objectId)]
-// result: messages (array of object)
+
 router.get("/getm", function (req, res) {
   Message.find({ gid: req.query.gid }, function (err, messages) {
     if (err) res.send('FAIL');
@@ -314,6 +326,7 @@ router.get('/viewunreadm', function (req, res) {
           promises = messages.map(message => {
             return new Promise((resolve, reject) => {
               User.findById(message.uid, (err, user) => {
+                console.log(user);
                 if(err) {
                   console.error(err);
                   reject()
@@ -351,9 +364,9 @@ router.post('/sendm', function (req, res) {
           throw err
         }
         else {
-          User.find({ id: message_model.uid }, (err, users) => {
+          User.findById(req.body.uid, (err, users) => {
             let message = result._doc;
-            message.user = users[0];
+            message.user = users
             Message.find({}).then(allMessages => {
               res.send({ message: message, messageOrder: allMessages.length });
             });
