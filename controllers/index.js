@@ -436,17 +436,4 @@ router.post("/setread", function (req, res) {
   });
 });
 
-/*
- * GET: /getmessageorder
- * Get latest messageOrder number 
- * Return
- *    messageOrder: Number // Number of messages sent
- */
- 
-router.get('/getmessageorder', function (req, res) {
-  Message.find({}).then(allMessages => {
-    return res.send({messageOrder: allMessages.length});
-  });
-});
-
 module.exports = router;
